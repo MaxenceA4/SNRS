@@ -5,7 +5,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
 # Chargement du fichier Excel
-wb = openpyxl.load_workbook('D:/Vrai_bureau/Logiciel_test/Inventaire.xlsx')
+wb = openpyxl.load_workbook('C:/Users/Maxence/Desktop/Logiciel_test/Inventaire.xlsx')
 
 # Accéder à la feuille "Utilisateurs"
 ws_users = wb['Utilisateurs']
@@ -39,8 +39,43 @@ def is_available(item):
             else:
                 return False
 
-    # Return False if the item is not found
-    return False
+
+# Nouvelle fenetre créer quand on clique sur un objet dans la liste
+class AnotherWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        print("Window created")
+
+        self.setWindowTitle("Information")
+        # Ajuster la taille de la fenetre
+        self.setGeometry(100, 100, 500, 600)
+
+        self.PetitTableau = QTableWidget()
+        self.PetitTableau.setRowCount(12)
+        self.PetitTableau.setColumnCount(2)
+
+        self.PetitTableau.setItem(0, 0, QTableWidgetItem("Serial Number"))
+
+        # Ajouter le numéro de série dans la case 0,1
+        # self.PetitTableau.setItem(0,1, QTableWidgetItem(str(self.GetInformation())))
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.PetitTableau)
+        self.setLayout(layout)
+
+        self.show()
+
+    def OpenNewWindow(self):
+        # Depending on the object clicked, get the information in the Excel file
+        # Open the workbook and select the sheet
+        workbook = openpyxl.load_workbook("Inventaire.xlsx")
+        sheet = workbook["Liste"]
+        # Get serial number in row 5
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if row[1] == self.listView.currentIndex().data():
+                # Create a new window
+                self.show_new_window(True)
+                return row[4]  # Return the serial number
 
 
 # Subclass QMainWindow to customize your application's main window
@@ -49,9 +84,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Widgets App")
+        self.setWindowTitle("Trouve ta gauge !")
 
-        self.setGeometry(500, 500, 200, 200)
+        self.setGeometry(100, 100, 800, 600)
 
         layout = QVBoxLayout()
 
@@ -59,13 +94,15 @@ class MainWindow(QMainWindow):
         for crit in criterias:
             qbox.addItem(str(crit))
 
-        for i in range(10):
-            layout.addWidget(QLabel("Row {}".format(i)))
-
         layout.addWidget(qbox)
 
-        selected_criteria = qbox.currentText()
-        print(selected_criteria)
+        self.listView = QListView()
+        self.model = QStandardItemModel()
+        self.listView.setModel(self.model)
+        self.listView.setObjectName("listView-1")
+        self.listView.clicked.connect(self.ClickOnObject)
+
+        layout.addWidget(self.listView)
 
         search_button = QPushButton("Search", self)
         search_button.clicked.connect(lambda: self.displayObjectsRegardingCriteria())
@@ -80,17 +117,50 @@ class MainWindow(QMainWindow):
 
     def search(self, criteria):
         # Open the workbook and select the sheet
-
         workbook = openpyxl.load_workbook("Inventaire.xlsx")
         sheet = workbook["Liste"]
+
+        # Clear ListView
+        self.model.clear()
+        nbr_resultat = 0
 
         # Loop through the rows to find the matching items
         results = []
         for row in sheet.iter_rows(min_row=2, values_only=True):
             if str(row[0]).lower() == str(criteria).lower():
-                results.append(row)
+                self.model.appendRow(QStandardItem(str(row[1])))
+                nbr_resultat += 1
+        if nbr_resultat == 0:
+            self.model.appendRow(QStandardItem("Aucun résultat"))
 
-        return (results)
+        # Loop through results to find if they are available and display with different colors
+        for i in range(0, nbr_resultat):
+            item = self.model.item(i)
+            if is_available(item.text()):
+                item.setForeground(QColor(0, 255, 0))
+            else:
+                item.setForeground(QColor(255, 0, 0))
+
+        return results
+
+    # Create a new window
+    def show_new_window(self, checked):
+        print("Creating new window...")
+        self.w = AnotherWindow()
+        self.w.show()
+
+    def ClickOnObject(self):
+        # Open the workbook and select the sheet
+        workbook = openpyxl.load_workbook("Inventaire.xlsx")
+        sheet = workbook["Liste"]
+
+        # Get information in row 4
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if row[1] == self.listView.currentIndex().data():
+                # Create a MessageBox
+                # QMessageBox.about(self, "Coefficient", "Coefficient : " + str(row[3]))
+                # Create a new window
+                self.show_new_window(True)
 
     def displayObjectsRegardingCriteria(self):
 
@@ -114,7 +184,6 @@ class MainWindow(QMainWindow):
                 if type(children[i]) == QLabel:
                     u = i
                     print(children[i].setText(object[1]))
-
 
         return ''
 

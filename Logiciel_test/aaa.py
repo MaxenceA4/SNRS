@@ -1,48 +1,43 @@
-# importing libraries
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QVBoxLayout, QWidget
+
 import sys
 
+from random import randint
 
-class Window(QMainWindow):
+
+class AnotherWindow(QWidget):
+    """
+    This "window" is a QWidget. If it has no parent, it
+    will appear as a free-floating window as we want.
+    """
     def __init__(self):
         super().__init__()
-
-        # setting title
-        self.setWindowTitle("Python ")
-
-        # setting geometry
-        self.setGeometry(100, 100, 600, 400)
-
-        # calling method
-        self.UiComponents()
-
-        # showing all the widgets
-        self.show()
-
-    # method for widgets
-    def UiComponents(self):
-        # creating a push button
-        button = QPushButton("CLICK", self)
-
-        # setting geometry of button
-        button.setGeometry(200, 150, 100, 30)
-
-        # adding action to a button
-        button.clicked.connect(self.clickme)
-
-    # action method
-    def clickme(self):
-        # printing pressed
-        print("pressed")
+        layout = QVBoxLayout()
+        self.label = QLabel("Another Window % d" % randint(0,100))
+        layout.addWidget(self.label)
+        self.setLayout(layout)
 
 
-# create pyqt5 app
-App = QApplication(sys.argv)
+class MainWindow(QMainWindow):
 
-# create the instance of our Window
-window = Window()
+    def __init__(self):
+        super().__init__()
+        self.w = None  # No external window yet.
+        self.button = QPushButton("Push for Window")
+        self.button.clicked.connect(self.show_new_window)
+        self.setCentralWidget(self.button)
 
-# start the app
-sys.exit(App.exec())
+    def show_new_window(self, checked):
+        if self.w is None:
+            self.w = AnotherWindow()
+            self.w.show()
+
+        else:
+            self.w.close()  # Close window.
+            self.w = None  # Discard reference.
+
+
+app = QApplication(sys.argv)
+w = MainWindow()
+w.show()
+app.exec()
