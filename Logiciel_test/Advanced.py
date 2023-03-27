@@ -1,3 +1,4 @@
+import xlwings as xw
 import sys
 import openpyxl
 from PyQt5.QtWidgets import *
@@ -16,8 +17,9 @@ for cell in ws_criteria['A']:
     criteria_set.add(cell.value)
 criterias = list(criteria_set)
 
-#Variable en read pour les subwindows
+# Variable en read pour les subwindows
 selectedSerialNumber = "Should be overwritten"
+
 
 def is_available(item):
     # Open the workbook and select the sheet
@@ -54,7 +56,11 @@ class AnotherWindow2(QWidget):
         self.InputManip.setPlaceholderText("Manip / stock")
 
         self.ConfirmButton = QPushButton("Confirmer")
+        self.ConfirmButton.clicked.connect(self.GreyTheInput)
         self.ConfirmButton.clicked.connect(self.ConfirmButtonFonction)
+
+        # if enter is pressed, the button is clicked
+        self.ConfirmButton.setAutoDefault(True)
 
         layout = QVBoxLayout()
         layout.addWidget(self.InputInitiales)
@@ -67,11 +73,61 @@ class AnotherWindow2(QWidget):
 
         self.show()
 
+    def GreyTheInput(self):
+        self.InputInitiales.setDisabled(True)
+        self.InputLocalisation.setDisabled(True)
+        self.InputManip.setDisabled(True)
+        self.ConfirmButton.setDisabled(True)
+
+    def UngreyTheInput(self):
+        self.InputInitiales.setDisabled(False)
+        self.InputLocalisation.setDisabled(False)
+        self.InputManip.setDisabled(False)
+        self.ConfirmButton.setDisabled(False)
+
     def ConfirmButtonFonction(self):
         # Open the inventory workbook
-        workbook = openpyxl.load_workbook("Inventaire.xlsx")
-        sheet = workbook["Liste"]
+        workbook = openpyxl.load_workbook(str(selectedSerialNumber) + ".xlsx")
+        sheet = workbook["Résumé"]
         print("Workbook opened")
+
+        # if the input are empty, do nothing
+        if self.InputInitiales.text() == "" or self.InputLocalisation.text() == "" or self.InputManip.text() == "":
+            print("Empty input")
+            # pop up a window to warn the user
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText("Remplissez tous les champs")
+            msg.setWindowTitle("Attention")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
+            self.UngreyTheInput()
+
+            return
+        # if the input are not empty, write the input in the excel file
+        else:
+            print("Input not empty")
+            sheet[f'B16'].value = self.InputInitiales.text()
+            sheet[f'B17'].value = self.InputLocalisation.text()
+            sheet[f'B18'].value = self.InputManip.text()
+            sheet[f'B19'].value = self.DateToday
+            print("Input written in the excel file")
+
+            # open the excel file so it can calculate the new values
+            app = xw.App(visible=False, add_book=False)
+            print("Excel file opened")
+            wb = app.books.open(str(selectedSerialNumber) + ".xlsx")
+            print("Workbook opened")
+            wb.save()
+            print("Workbook saved")
+            wb.close()
+            print("Workbook closed")
+            app.quit()
+
+            # refresh another window
+            self.w = AnotherWindow()
+            self.w.show()
+            self.close()
 
 
 # Nouvelle fenetre créer quand on clique sur un objet dans la liste
@@ -82,12 +138,8 @@ class AnotherWindow(QWidget):
         self.setWindowTitle("Information")
         self.setGeometry(100, 100, 500, 600)
         self.PetitTableau = QTableWidget()
-        self.PetitTableau.setRowCount(15)
+        self.PetitTableau.setRowCount(19)
         self.PetitTableau.setColumnCount(3)
-
-        # Bouton Test
-        self.Test = QPushButton("Test")
-        self.Test.clicked.connect(self.TestFonction)
 
         # Bouton "Modifier"
         self.Modifier = QPushButton("Modifier")
@@ -99,34 +151,30 @@ class AnotherWindow(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.PetitTableau)
         layout.addWidget(self.Modifier)
-        layout.addWidget(self.Test)
 
         self.setLayout(layout)
 
         self.show()
-
-    def TestFonction(self):
-        print("Selected serial number in another class", selectedSerialNumber)
-
 
     def ModifierFonction(self):
         # Create a new window
         self.w = AnotherWindow2()
         self.w.show()
         print(selectedSerialNumber)
+        self.close()
 
     # Fonction qui copie un tableau excel dans un tableau de la fenetre
     def copyExcelTable(self):
 
         # Open the workbook and select the sheet
-        workbook = openpyxl.load_workbook("test.xlsx", data_only=True)
+        workbook = openpyxl.load_workbook(str(selectedSerialNumber) + ".xlsx", data_only=True)
         sheet = workbook["Résumé"]
 
         # Ajout des titres des colonnes
         self.PetitTableau.setHorizontalHeaderLabels(["Critères", "Valeur"])
 
         # Copy the Excel table in the new window
-        for row in range(1, 16):
+        for row in range(1, 20):
             for col in range(1, 4):
                 # Copie de la cellule dans le tableau de la fenetre
                 self.PetitTableau.setItem(row - 1, col - 1, QTableWidgetItem(str(sheet.cell(row, col).value)))
